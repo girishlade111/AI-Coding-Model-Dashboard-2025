@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The 2025 State of AI in Software Development</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Midnight Harmony -->
+    <!-- Application Structure Plan: A multi-section, filter-driven dashboard. The structure prioritizes user-led exploration over the report's linear format. It starts with the main conclusion (Hero), provides high-level context (Market Overview), allows deep-diving via an interactive dashboard with model cards and filters (Dashboard), offers detailed comparisons (Benchmark Deep Dive), explains core concepts (Concepts), and summarizes actionable advice (Final Verdict). This task-oriented flow empowers users to find answers to specific questions (e.g., "What's the best open-source model for agentic tasks?") efficiently, which is superior for usability than simply digitizing the report's chapters. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: Overall model comparison -> Goal: Compare -> Viz: Interactive card grid -> Interaction: Filters (Use Case, Source, Cost) update the grid -> Justification: Allows users to slice and dice the model landscape based on their specific needs, which is the primary task. -> Library/Method: Vanilla JS DOM manipulation.
+        - Report Info: Specific benchmark scores (SWE-bench, etc.) -> Goal: Compare -> Viz: Interactive Bar Chart -> Interaction: Dropdown selects which benchmark data to display -> Justification: A bar chart is the clearest way to show relative performance. Making it dynamic allows comparison across multiple metrics in a single component. -> Library/Method: Chart.js (Canvas).
+        - Report Info: Detailed model data (thesis, cost, params) -> Goal: Inform -> Viz: Modal Dialog -> Interaction: Click on a model card to open its detailed view -> Justification: Keeps the main dashboard uncluttered while providing deep-dive information on demand. -> Library/Method: Vanilla JS.
+        - Report Info: Dense vs. MoE architecture -> Goal: Organize/Explain -> Viz: HTML/CSS diagram -> Interaction: Static -> Justification: A simple visual metaphor created with styled divs is sufficient and avoids external graphics. -> Library/Method: HTML/Tailwind CSS.
+        - CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827; /* Dark Slate/Charcoal */
+            color: #E5E7EB; /* Light Gray */
+        }
+        #sparkle-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+        }
+        .sparkle {
+            position: absolute;
+            background-color: #7DD3FC; /* Light Blue Sparkle */
+            border-radius: 50%;
+            opacity: 0;
+            animation: sparkle-animation linear infinite;
+        }
+        @keyframes sparkle-animation {
+            0%, 100% { opacity: 0; transform: scale(0.5); }
+            50% { opacity: 1; transform: scale(1.2); }
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 900px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 450px;
+            max-height: 60vh;
+        }
+        .modal-chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            margin: 1rem auto;
+            height: 250px;
+        }
+        .card-gradient {
+            background-color: #1F2937; /* Darker Gray */
+            border-color: #374151;
+        }
+        .btn-primary {
+            background-color: #38BDF8; /* Sky Blue */
+            color: #111827;
+            transition: background-color 0.3s;
+        }
+        .btn-primary:hover {
+            background-color: #7DD3FC;
+        }
+        .accent-text {
+            color: #F87171; /* Soft Red */
+        }
+        .nav-active {
+            border-bottom: 2px solid #38BDF8; /* Sky Blue */
+            color: #38BDF8;
+            font-weight: 600;
+        }
+        .modal {
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+        }
+        .modal-hidden {
+            opacity: 0;
+            transform: scale(0.95);
+            pointer-events: none;
+        }
+        .card-hidden {
+            display: none;
+        }
+        select {
+            background-color: #374151;
+            border-color: #4B5563;
+            color: #E5E7EB;
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <div id="sparkle-container"></div>
+
+    <header class="bg-gray-900/80 backdrop-blur-lg sticky top-0 z-40 shadow-lg shadow-black/20">
+        <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex-shrink-0">
+                    <h1 class="text-xl font-bold text-gray-100">AI Coding Models: 2025</h1>
+                </div>
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="#hero" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-sky-400 nav-link">Home</a>
+                        <a href="#dashboard" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-sky-400 nav-link">Dashboard</a>
+                        <a href="#benchmarks" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-sky-400 nav-link">Benchmarks</a>
+                        <a href="#concepts" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-sky-400 nav-link">Concepts</a>
+                        <a href="#verdict" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-sky-400 nav-link">Verdict</a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <section id="hero" class="py-20 md:py-32 text-center bg-gray-900">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight text-white">
+                    <span class="block">The Definitive Guide to</span>
+                    <span class="block accent-text">AI Coding Models in 2025</span>
+                </h1>
+                <p class="mt-6 max-w-2xl mx-auto text-lg md:text-xl text-gray-400">
+                    An interactive analysis of the AI landscape for software development, from agentic powerhouses to specialized tools.
+                </p>
+                <div class="mt-8">
+                    <div class="inline-flex rounded-md shadow">
+                        <a href="#dashboard" class="inline-flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md btn-primary">
+                            Explore the Dashboard
+                        </a>
+                    </div>
+                </div>
+                <div class="mt-12 p-6 max-w-3xl mx-auto bg-sky-900/20 border-l-4 border-sky-500 rounded-r-lg">
+                    <h3 class="text-xl font-bold text-sky-300">The Singular Choice for Coding Excellence</h3>
+                    <p class="mt-2 text-left text-sky-200">
+                        After comprehensive analysis, this report identifies a definitive leader for complex, professional coding tasks: <strong class="font-semibold text-white">Claude 4 Opus</strong>. It functions as a competent, high-level software engineering partner, exhibiting a unique combination of precision, endurance for long-running agentic tasks, and a deep understanding of complex codebase structures that is currently unmatched.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <section id="dashboard" class="py-16 sm:py-24">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center">
+                    <h2 class="text-3xl font-bold tracking-tight sm:text-4xl text-white">Interactive Model Dashboard</h2>
+                    <p class="mt-4 max-w-2xl mx-auto text-lg text-gray-400">
+                        Filter and select models to explore their capabilities, costs, and ideal use cases. Click on any card for a detailed breakdown.
+                    </p>
+                </div>
+
+                <div id="filters" class="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
+                    <div>
+                        <label for="useCaseFilter" class="block text-sm font-medium text-gray-400">Filter by Use Case</label>
+                        <select id="useCaseFilter" class="mt-1 block w-full pl-3 pr-10 py-2 text-base focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm rounded-md">
+                            <option value="all">All Use Cases</option>
+                            <option value="agentic">Complex Agentic Engineering</option>
+                            <option value="webdev">Frontend & Web Development</option>
+                            <option value="datasci">Data Science & Scientific Computing</option>
+                            <option value="systems">Systems Programming (Rust, C++)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="sourceFilter" class="block text-sm font-medium text-gray-400">Filter by Source</label>
+                        <select id="sourceFilter" class="mt-1 block w-full pl-3 pr-10 py-2 text-base focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm rounded-md">
+                            <option value="all">All Sources</option>
+                            <option value="Closed">Closed Source</option>
+                            <option value="Open">Open Source</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="costFilter" class="block text-sm font-medium text-gray-400">Filter by Cost Tier</label>
+                        <select id="costFilter" class="mt-1 block w-full pl-3 pr-10 py-2 text-base focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm rounded-md">
+                            <option value="all">All Cost Tiers</option>
+                            <option value="Premium">Premium</option>
+                            <option value="High-Value">High-Value</option>
+                            <option value="Budget">Budget</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="modelGrid" class="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+                </div>
+            </div>
+        </section>
+
+        <section id="benchmarks" class="py-16 sm:py-24 bg-gray-900">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center">
+                    <h2 class="text-3xl font-bold tracking-tight sm:text-4xl text-white">Benchmark Deep Dive</h2>
+                    <p class="mt-4 max-w-2xl mx-auto text-lg text-gray-400">
+                        Compare model performance on key industry benchmarks. Select a benchmark to see how the models stack up.
+                    </p>
+                </div>
+                <div class="mt-8 max-w-sm mx-auto">
+                    <label for="benchmarkSelector" class="block text-sm font-medium text-gray-400">Select Benchmark</label>
+                    <select id="benchmarkSelector" class="mt-1 block w-full pl-3 pr-10 py-2 text-base focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm rounded-md">
+                        <option value="swe_bench" selected>SWE-bench Verified (%)</option>
+                        <option value="human_eval">HumanEval (%)</option>
+                    </select>
+                </div>
+                <div class="mt-8 chart-container">
+                    <canvas id="benchmarkChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <section id="concepts" class="py-16 sm:py-24">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center">
+                    <h2 class="text-3xl font-bold tracking-tight sm:text-4xl text-white">Core Concepts Explained</h2>
+                    <p class="mt-4 max-w-2xl mx-auto text-lg text-gray-400">
+                        Understand the key technologies and trends shaping the AI coding landscape.
+                    </p>
+                </div>
+                <div class="mt-12 grid grid-cols-1 md:grid-cols-2 gap-12 items-start">
+                    <div class="p-8 rounded-lg border border-gray-700 bg-gray-800">
+                        <h3 class="text-xl font-bold text-white">Architectural Divergence</h3>
+                        <p class="mt-2 text-gray-400">Modern AI models use two primary architectures which impact their performance and cost.</p>
+                        <div class="mt-6">
+                            <h4 class="font-semibold text-gray-200">Dense Architecture</h4>
+                            <p class="text-sm text-gray-500">Every parameter is activated for every task. Powerful but computationally expensive.</p>
+                            <div class="mt-2 p-2 border rounded-md bg-gray-900 border-gray-700 flex flex-wrap gap-1">
+                                <script>for(let i=0; i<80; i++) document.write('<div class="w-4 h-4 bg-sky-500 rounded-sm"></div>')</script>
+                            </div>
+                        </div>
+                         <div class="mt-6">
+                            <h4 class="font-semibold text-gray-200">Mixture-of-Experts (MoE)</h4>
+                            <p class="text-sm text-gray-500">Only a subset of specialized "expert" parameters are activated. Highly efficient at scale.</p>
+                            <div class="mt-2 p-2 border rounded-md bg-gray-900 border-gray-700 flex flex-wrap gap-1">
+                                <script>for(let i=0; i<80; i++) document.write(`<div class="w-4 h-4 rounded-sm ${Math.random() > 0.85 ? 'bg-indigo-500' : 'bg-gray-700'}"></div>`)</script>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-8 rounded-lg border border-gray-700 bg-gray-800">
+                        <h3 class="text-xl font-bold text-white">The Paradigm Shift: Agentic Engineering</h3>
+                        <p class="mt-2 text-gray-400">The frontier has moved beyond simple code completion to autonomous agents that can plan, execute, and verify complex software engineering tasks from end to end.</p>
+                        <div class="mt-6 space-y-4">
+                            <div class="flex items-start">
+                                <div class="flex-shrink-0 h-6 w-6 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold text-sm">1</div>
+                                <p class="ml-3 text-gray-300"><strong>Understand Goal:</strong> Interpret high-level tasks from natural language.</p>
+                            </div>
+                             <div class="flex items-start">
+                                <div class="flex-shrink-0 h-6 w-6 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold text-sm">2</div>
+                                <p class="ml-3 text-gray-300"><strong>Plan & Execute:</strong> Explore codebase, plan steps, and interact with tools like compilers.</p>
+                            </div>
+                             <div class="flex items-start">
+                                <div class="flex-shrink-0 h-6 w-6 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold text-sm">3</div>
+                                <p class="ml-3 text-gray-300"><strong>Generate & Verify:</strong> Apply code changes across files and debug based on feedback.</p>
+                            </div>
+                        </div>
+                         <div class="mt-8 p-4 bg-amber-900/20 border-l-4 border-amber-500 rounded-r-lg">
+                            <h4 class="font-bold text-amber-300">The Groq Factor</h4>
+                            <p class="text-sm text-amber-200">Groq is not an AI model. It's a hardware company that builds specialized chips (LPUs) for ultra-fast inference. Using a model on Groq is a choice to prioritize speed, potentially at the cost of reasoning fidelity due to model compression (quantization).</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="verdict" class="py-16 sm:py-24 bg-gray-900">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center">
+                    <h2 class="text-3xl font-bold tracking-tight sm:text-4xl text-white">The Final Verdict & Strategic Framework</h2>
+                    <p class="mt-4 max-w-2xl mx-auto text-lg text-gray-400">
+                        Choose the right model for your specific needs, budget, and technical philosophy.
+                    </p>
+                </div>
+                <div class="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                    <div class="p-6 rounded-lg border-2 border-red-500 shadow-lg bg-gray-800">
+                        <h3 class="font-bold text-lg accent-text">Best-in-Class: Claude 4 Opus</h3>
+                        <p class="mt-2 text-sm text-gray-400">For those who require maximum capability without compromise. Its dominance on meaningful benchmarks, proven agentic endurance, and qualitative superiority make it the premier choice for professional engineering.</p>
+                    </div>
+                    <div class="p-6 rounded-lg border border-gray-700 shadow-md bg-gray-800">
+                        <h3 class="font-bold text-lg text-sky-400">Best Value: Qwen3-Coder</h3>
+                        <p class="mt-2 text-sm text-gray-400">Delivers agentic performance remarkably close to the state-of-the-art at a fraction of the cost. Ideal for startups and budget-conscious teams needing top-tier capabilities.</p>
+                    </div>
+                    <div class="p-6 rounded-lg border border-gray-700 shadow-md bg-gray-800">
+                        <h3 class="font-bold text-lg text-sky-400">Best for Web Dev: Gemini 2.5 Pro</h3>
+                        <p class="mt-2 text-sm text-gray-400">The most effective tool for frontend and full-stack web apps. Its #1 rank on WebDev Arena and praised "aesthetic sense" make it a specialist in creating polished user experiences.</p>
+                    </div>
+                    <div class="p-6 rounded-lg border border-gray-700 shadow-md bg-gray-800">
+                        <h3 class="font-bold text-lg text-sky-400">Best for Customization: Llama 3.1 405B</h3>
+                        <p class="mt-2 text-sm text-gray-400">The premier open foundation model for organizations that require maximum control. Ideal for fine-tuning on proprietary codebases to create a bespoke, domain-specific expert.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-gray-900 text-white border-t border-gray-800">
+        <div class="container mx-auto py-8 px-4 sm:px-6 lg:px-8 text-center text-sm">
+            <p>Interactive Report generated from "The 2025 State of AI in Software Development".</p>
+            <p class="mt-2 opacity-50">This is a conceptual application based on the provided report data.</p>
+        </div>
+    </footer>
+
+    <div id="modelModal" class="modal modal-hidden fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4">
+        <div id="modalContent" class="bg-gray-800 border border-gray-700 rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+        </div>
+    </div>
+
+<script>
+const modelsData = [
+    {
+        id: 'claude4_opus',
+        name: 'Claude 4 Opus',
+        source: 'Closed',
+        costTier: 'Premium',
+        useCases: ['agentic', 'systems'],
+        scorecard: {
+            strength: 'Agentic Endurance & Precision',
+            swe_bench: 72.5,
+            rec_score: 9.5
+        },
+        thesis: 'The current, undisputed heavyweight champion of complex, agentic software engineering. It sets the highest industry bar for performance on benchmarks that simulate real-world development.',
+        capabilities: [
+            'Sustained performance on long-running tasks (validated 7-hour refactor).',
+            'Precise, surgical code edits with 80% reduction in "overeagerness".',
+            'Creates its own "memory files" to track context over thousands of steps.',
+            'Features an "extended thinking mode" for complex problem-solving.'
+        ],
+        cost: '$15.00 / $75.00',
+        benchmarks: { 'SWE-bench': 72.5, 'Terminal-bench': 43.2 }
+    },
+    {
+        id: 'qwen3_coder',
+        name: 'Qwen3-Coder',
+        source: 'Open',
+        costTier: 'High-Value',
+        useCases: ['agentic'],
+        scorecard: {
+            strength: 'Agentic Performance-per-Dollar',
+            swe_bench: 69.6,
+            rec_score: 9.0
+        },
+        thesis: 'Represents the zenith of the open-source challenge to proprietary dominance, delivering state-of-the-art agentic coding performance at a profoundly disruptive price point.',
+        capabilities: [
+            'Massive 480B parameter MoE architecture (35B active).',
+            'Trained on 7.5 trillion tokens, with 70% being code.',
+            'Excellent performance on agentic benchmarks, competitive with the best.',
+            'Part of a growing open-source ecosystem with tools like Qwen Code CLI.'
+        ],
+        cost: 'Varies by provider',
+        benchmarks: { 'SWE-bench': 69.6 }
+    },
+    {
+        id: 'kimi_k2',
+        name: 'Kimi K2',
+        source: 'Open',
+        costTier: 'Budget',
+        useCases: ['agentic'],
+        scorecard: {
+            strength: 'Agentic Tool-Use & Value',
+            swe_bench: 65.8,
+            rec_score: 8.8
+        },
+        thesis: 'A MoE behemoth meticulously optimized for agentic, tool-calling tasks, offering formidable performance and extreme value for money.',
+        capabilities: [
+            'Reported 1 trillion parameter MoE architecture (32B active).',
+            'Optimized from the ground up for tool-calling.',
+            'Nearly tenfold cost reduction for comparable work vs proprietary models in some tests.',
+            'Superior intelligence in tool-calling compared to older OpenAI models.'
+        ],
+        cost: '$0.15 / $2.50',
+        benchmarks: { 'SWE-bench': 65.8, 'LiveCodeBench': 53.7 }
+    },
+    {
+        id: 'gemini_2_5_pro',
+        name: 'Gemini 2.5 Pro',
+        source: 'Closed',
+        costTier: 'Premium',
+        useCases: ['webdev'],
+        scorecard: {
+            strength: 'Web Development & Multimodality',
+            swe_bench: 67.2,
+            rec_score: 8.7
+        },
+        thesis: 'A powerful generalist that has carved out a dominant niche in frontend and full-stack web development, demonstrating a unique "taste for aesthetic" and novel multimodal workflows.',
+        capabilities: [
+            '#1 rank on the human-preference WebDev Arena leaderboard.',
+            'Innovative video-to-code capability for rapid prototyping from tutorials.',
+            'Native multimodality (text, image, audio, video).',
+            'Experimental "Deep Think" reasoning mode for difficult problems.'
+        ],
+        cost: '$1.25 / $10.00',
+        benchmarks: { 'LiveCodeBench': 69.0, 'Aider Polyglot': 82.2 }
+    },
+    {
+        id: 'mistral_devstral',
+        name: 'Mistral Devstral Medium',
+        source: 'Closed',
+        costTier: 'High-Value',
+        useCases: ['agentic'],
+        scorecard: {
+            strength: 'Specialized Agentic Coding',
+            swe_bench: 61.6,
+            rec_score: 8.5
+        },
+        thesis: 'Mistral\'s entry into the high-end agentic coding arena, specifically designed for tasks that require codebase exploration, multi-file edits, and integration into autonomous agents.',
+        capabilities: [
+            'Purpose-built for agentic workflows in collaboration with All Hands AI.',
+            'Impressive SWE-Bench score, placing it ahead of some major proprietary models.',
+            'Part of a specialized portfolio, complemented by the faster Codestral 2 for IDE tasks.',
+            'Optimized for multi-file edits and bug-fixing sessions.'
+        ],
+        cost: '$0.40 / $2.00',
+        benchmarks: { 'SWE-bench': 61.6 }
+    },
+    {
+        id: 'gpt4_1',
+        name: 'GPT-4.1',
+        source: 'Closed',
+        costTier: 'Premium',
+        useCases: ['webdev', 'datasci', 'systems'],
+        scorecard: {
+            strength: 'Generalist Reliability & Workflow',
+            swe_bench: 54.6,
+            rec_score: 8.2
+        },
+        thesis: 'A significant, developer-centric evolution of the GPT series, prioritizing reliability, enhanced instruction-following, and smoother workflow integration.',
+        capabilities: [
+            'Dramatic improvement on SWE-bench over GPT-4o (+21.4 points).',
+            'Marked improvement in following complex, multi-step instructions.',
+            'Frequency of unintended code edits dropped from 9% to just 2%.',
+            'Described as a true "coding buddy" that understands stacked requirements.'
+        ],
+        cost: '$2.00 / $8.00',
+        benchmarks: { 'SWE-bench': 54.6, 'HumanEval': 89.0 }
+    },
+    {
+        id: 'deepseek_coder_v2',
+        name: 'DeepSeek Coder V2',
+        source: 'Open',
+        costTier: 'Budget',
+        useCases: ['datasci'],
+        scorecard: {
+            strength: 'Algorithmic & Math Proficiency',
+            swe_bench: 12.7,
+            rec_score: 8.0
+        },
+        thesis: 'A highly specialized model that achieves state-of-the-art performance in pure code generation and mathematical reasoning, leading the world in traditional algorithmic benchmarks.',
+        capabilities: [
+            'Outstanding 90.2% on HumanEval and 76.2% on MBPP.',
+            'MoE architecture (236B total / 21B active).',
+            'Supports 338 distinct programming languages.',
+            'Ideal for competitive programming, scientific computing, and data science scripting.'
+        ],
+        cost: 'Varies by provider',
+        benchmarks: { 'HumanEval': 90.2, 'MBPP': 76.2, 'SWE-bench': 12.7 }
+    },
+    {
+        id: 'llama3_1_405b',
+        name: 'Llama 3.1 405B',
+        source: 'Open',
+        costTier: 'High-Value',
+        useCases: ['datasci'],
+        scorecard: {
+            strength: 'Foundation Model Customization',
+            swe_bench: 'N/A',
+            rec_score: 8.4
+        },
+        thesis: 'The premier open foundation model, designed for maximum power, customizability, and fine-tuning into domain-specific experts rather than being an off-the-shelf specialist.',
+        capabilities: [
+            'Massive 405-billion-parameter dense architecture.',
+            'Permissive license allows use for synthetic data generation to train other models.',
+            'Ideal for domain-specific fine-tuning on proprietary codebases and APIs.',
+            'Strong generalist coding performance (89.0% on HumanEval).'
+        ],
+        cost: 'Varies by provider',
+        benchmarks: { 'HumanEval': 89.0 }
+    }
+];
+
+document.addEventListener('DOMContentLoaded', () => {
+    const modelGrid = document.getElementById('modelGrid');
+    const modal = document.getElementById('modelModal');
+    const modalContent = document.getElementById('modalContent');
+    const useCaseFilter = document.getElementById('useCaseFilter');
+    const sourceFilter = document.getElementById('sourceFilter');
+    const costFilter = document.getElementById('costFilter');
+    const benchmarkSelector = document.getElementById('benchmarkSelector');
+    let benchmarkChart;
+
+    function createSparkles() {
+        const container = document.getElementById('sparkle-container');
+        const sparkleCount = 50;
+        for (let i = 0; i < sparkleCount; i++) {
+            const sparkle = document.createElement('div');
+            sparkle.className = 'sparkle';
+            const size = Math.random() * 3 + 1;
+            sparkle.style.width = `${size}px`;
+            sparkle.style.height = `${size}px`;
+            sparkle.style.top = `${Math.random() * 100}%`;
+            sparkle.style.left = `${Math.random() * 100}%`;
+            sparkle.style.animationDuration = `${Math.random() * 3 + 2}s`;
+            sparkle.style.animationDelay = `${Math.random() * 3}s`;
+            container.appendChild(sparkle);
+        }
+    }
+
+    function createModelCard(model) {
+        return `
+            <div id="${model.id}" class="model-card p-6 rounded-lg border hover:shadow-lg hover:shadow-sky-500/10 hover:border-sky-500 transition-all duration-300 cursor-pointer card-gradient"
+                 data-source="${model.source}" data-cost="${model.costTier}" data-usecases='${JSON.stringify(model.useCases)}'>
+                <div class="flex justify-between items-start">
+                    <h3 class="text-xl font-bold text-gray-100">${model.name}</h3>
+                    <span class="text-xs font-semibold px-2 py-1 rounded-full ${model.source === 'Open' ? 'bg-blue-900/50 text-blue-300' : 'bg-green-900/50 text-green-300'}">${model.source} Source</span>
+                </div>
+                <p class="mt-2 text-sm text-gray-400">${model.scorecard.strength}</p>
+                <div class="mt-4 flex justify-between items-center text-sm">
+                    <span class="font-semibold text-gray-300">SWE-bench:</span>
+                    <span class="font-bold text-lg accent-text">${model.scorecard.swe_bench || 'N/A'}${typeof model.scorecard.swe_bench === 'number' ? '%' : ''}</span>
+                </div>
+                <div class="mt-2 flex justify-between items-center text-sm">
+                    <span class="font-semibold text-gray-300">Rec. Score:</span>
+                    <span class="font-bold text-lg text-sky-400">${model.scorecard.rec_score || 'N/A'}/10</span>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderModalContent(model) {
+        return `
+            <div class="p-6 md:p-8">
+                <div class="flex justify-between items-start">
+                    <h2 class="text-3xl font-bold text-white">${model.name}</h2>
+                    <button id="closeModal" class="text-gray-400 hover:text-gray-200 text-4xl leading-none">&times;</button>
+                </div>
+                <p class="mt-4 text-gray-400 italic">"${model.thesis}"</p>
+
+                <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h4 class="font-semibold text-lg mb-2 text-gray-200">Key Capabilities</h4>
+                        <ul class="list-disc list-inside space-y-1 text-gray-400 text-sm">
+                            ${model.capabilities.map(cap => `<li>${cap}</li>`).join('')}
+                        </ul>
+                         <h4 class="font-semibold text-lg mt-6 mb-2 text-gray-200">Cost (Input/Output per 1M tokens)</h4>
+                         <p class="text-gray-400">${model.cost}</p>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-lg mb-2 text-center text-gray-200">Benchmark Performance</h4>
+                        <div class="modal-chart-container">
+                           <canvas id="modalChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    function createModalChart(model) {
+        const ctx = document.getElementById('modalChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(model.benchmarks),
+                datasets: [{
+                    label: 'Score (%)',
+                    data: Object.values(model.benchmarks),
+                    backgroundColor: ['#38BDF8', '#818CF8', '#F87171', '#A78BFA'],
+                    borderRadius: 4,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: { label: (context) => `${context.dataset.label}: ${context.raw}%` }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        max: 100,
+                        grid: { display: false },
+                        ticks: { color: '#9CA3AF' }
+                    },
+                    y: {
+                        grid: { color: '#374151' },
+                        ticks: { color: '#9CA3AF' }
+                    }
+                }
+            }
+        });
+    }
+
+    function renderModels() {
+        modelGrid.innerHTML = modelsData.map(createModelCard).join('');
+        document.querySelectorAll('.model-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const model = modelsData.find(m => m.id === card.id);
+                modalContent.innerHTML = renderModalContent(model);
+                modal.classList.remove('modal-hidden');
+                document.body.style.overflow = 'hidden';
+                createModalChart(model);
+                
+                document.getElementById('closeModal').addEventListener('click', () => {
+                    modal.classList.add('modal-hidden');
+                    document.body.style.overflow = 'auto';
+                });
+            });
+        });
+    }
+    
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.classList.add('modal-hidden');
+            document.body.style.overflow = 'auto';
+        }
+    });
+
+    function filterModels() {
+        const uc = useCaseFilter.value;
+        const src = sourceFilter.value;
+        const cst = costFilter.value;
+
+        document.querySelectorAll('.model-card').forEach(card => {
+            const useCases = JSON.parse(card.dataset.usecases);
+            const source = card.dataset.source;
+            const cost = card.dataset.cost;
+
+            const ucMatch = uc === 'all' || useCases.includes(uc);
+            const srcMatch = src === 'all' || source === src;
+            const cstMatch = cst === 'all' || cost === cst;
+
+            if (ucMatch && srcMatch && cstMatch) {
+                card.classList.remove('card-hidden');
+            } else {
+                card.classList.add('card-hidden');
+            }
+        });
+    }
+    
+    function renderBenchmarkChart() {
+        if(benchmarkChart) {
+            benchmarkChart.destroy();
+        }
+        const selectedBenchmark = benchmarkSelector.value;
+        let chartData;
+
+        if (selectedBenchmark === 'swe_bench') {
+            chartData = modelsData
+                .map(m => ({ label: m.name, value: m.scorecard?.swe_bench }))
+                .filter(d => typeof d.value === 'number')
+                .sort((a, b) => b.value - a.value);
+        } else if (selectedBenchmark === 'human_eval') {
+            chartData = modelsData
+                .map(m => ({ label: m.name, value: m.benchmarks?.HumanEval }))
+                .filter(d => typeof d.value === 'number')
+                .sort((a, b) => b.value - a.value);
+        }
+
+        const ctx = document.getElementById('benchmarkChart').getContext('2d');
+        const chartTextColor = '#E5E7EB';
+        const chartGridColor = '#374151';
+
+        benchmarkChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: chartData.map(d => d.label),
+                datasets: [{
+                    label: benchmarkSelector.options[benchmarkSelector.selectedIndex].text,
+                    data: chartData.map(d => d.value),
+                    backgroundColor: '#38BDF8',
+                    borderColor: '#0284C7',
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: { label: (context) => `${context.dataset.label}: ${context.raw}%` }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: chartGridColor },
+                        ticks: { color: chartTextColor }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: {
+                            color: chartTextColor,
+                            callback: function(value) {
+                                const label = this.getLabelForValue(value);
+                                return label.length > 15 ? label.substring(0, 15) + '...' : label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    useCaseFilter.addEventListener('change', filterModels);
+    sourceFilter.addEventListener('change', filterModels);
+    costFilter.addEventListener('change', filterModels);
+    benchmarkSelector.addEventListener('change', renderBenchmarkChart);
+    
+    createSparkles();
+    renderModels();
+    renderBenchmarkChart();
+
+    const navLinks = document.querySelectorAll('.nav-link');
+    const sections = document.querySelectorAll('main section');
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                navLinks.forEach(link => {
+                    link.classList.remove('nav-active');
+                    if (link.getAttribute('href').substring(1) === entry.target.id) {
+                        link.classList.add('nav-active');
+                    }
+                });
+            }
+        });
+    }, { rootMargin: "-50% 0px -50% 0px" });
+
+    sections.forEach(section => observer.observe(section));
+    
+    navLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            document.querySelector(link.getAttribute('href')).scrollIntoView({
+                behavior: 'smooth'
+            });
+        });
+    });
+});
+</script>
+</body>
+</html>
